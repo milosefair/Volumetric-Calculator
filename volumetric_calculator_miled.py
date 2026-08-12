@@ -279,49 +279,59 @@ st.caption('Developed by Miled Sefair · Contact: milosefair@gmail.com')
 
 ### Manual Input
 with st.expander('Manual Input', expanded=False):
-    left_column, right_column = st.columns(2)
+    case_name_man = st.text_input('Nombre del caso', value=f"Manual_{len(st.session_state.saved_cases)+1}", key='case_name_man',
+        help='Con qué nombre se guarda este caso en la comparación. Usá el mismo nombre para actualizar un caso ya guardado.')
+    st.divider()
 
-    area_m = left_column.number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.001, value=1.0, format='%.3f',
+    row_area = st.columns(2)
+    area_m = row_area[0].number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.001, value=1.0, format='%.3f',
         help='Área media del reservorio. Rango típico: 0.1 a 1000 Km².')
     radius_m = (area_m / np.pi) ** 0.5 * 1000
-    left_column.caption(f"↳ Equivale a un círculo de radio ≈ **{fmt_number(radius_m, 0)} m**")
-    area_sd = right_column.number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='area_sd',
+    row_area[0].caption(f"↳ Equivale a un círculo de radio ≈ **{fmt_number(radius_m, 0)} m**")
+    area_sd = row_area[1].number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='area_sd',
         help='Incertidumbre del área (desvío estándar). Sugerido: 10-30% del valor medio.')
 
-    ht_m = left_column.number_input('Thickness [m]', min_value=0.000001, step=0.1, value=5.0, format='%.1f',
+    row_ht = st.columns(2)
+    ht_m = row_ht[0].number_input('Thickness [m]', min_value=0.000001, step=0.1, value=5.0, format='%.1f',
         help='Espesor neto promedio de la formación, en metros. Rango típico: 1 a 100 m.')
-    ht_sd = right_column.number_input('Thickness Std. dev [m]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='ht_sd',
+    ht_sd = row_ht[1].number_input('Thickness Std. dev [m]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='ht_sd',
         help='Incertidumbre del espesor (desvío estándar). Sugerido: 10-30% del valor medio.')
 
-    phi_m = left_column.number_input('Porosity [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
+    row_phi = st.columns(2)
+    phi_m = row_phi[0].number_input('Porosity [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
         help='Porosidad efectiva, como fracción entre 0 y 1. Rango típico: 0.05 a 0.30 (5% a 30%).')
-    phi_sd = right_column.number_input('Porosity Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='phi_sd',
+    phi_sd = row_phi[1].number_input('Porosity Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='phi_sd',
         help='Incertidumbre de la porosidad. Sugerido: 0.02 a 0.05.')
 
-    ntg_m = left_column.number_input('Net-to-Gross [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.6, format='%.2f',
+    row_ntg = st.columns(2)
+    ntg_m = row_ntg[0].number_input('Net-to-Gross [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.6, format='%.2f',
         help='Relación entre espesor neto y espesor bruto, entre 0 y 1. Rango típico: 0.3 a 1.0.')
-    ntg_sd = right_column.number_input('NTG Std. dev', min_value=0.000001, step=0.001, value=0.15, format='%.4f', key='ntg_sd',
+    ntg_sd = row_ntg[1].number_input('NTG Std. dev', min_value=0.000001, step=0.001, value=0.15, format='%.4f', key='ntg_sd',
         help='Incertidumbre del NTG. Sugerido: 0.05 a 0.20.')
 
-    sw_m = left_column.number_input('Water Saturation [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.3, format='%.2f',
+    row_sw = st.columns(2)
+    sw_m = row_sw[0].number_input('Water Saturation [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.3, format='%.2f',
         help='Saturación de agua irreducible, entre 0 y 1. Rango típico: 0.15 a 0.50.')
-    sw_sd = right_column.number_input('Sw Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='sw_sd',
+    sw_sd = row_sw[1].number_input('Sw Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='sw_sd',
         help='Incertidumbre de la saturación de agua. Sugerido: 0.02 a 0.10.')
 
-    rf_m = left_column.number_input('Recovery Factor [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
+    row_rf = st.columns(2)
+    rf_m = row_rf[0].number_input('Recovery Factor [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
         help='Fracción del volumen in-situ que se espera recuperar, entre 0 y 1. Rango típico: 0.05 (no convencional) a 0.40 (convencional).')
-    rf_sd = right_column.number_input('RF Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='rf_sd',
+    rf_sd = row_rf[1].number_input('RF Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='rf_sd',
         help='Incertidumbre del factor de recobro. Sugerido: 0.02 a 0.10.')
 
-    bo_m = left_column.number_input('Bo', min_value=0.000001, step=0.01, value=1.2, format='%.2f',
+    row_bo = st.columns(2)
+    bo_m = row_bo[0].number_input('Bo', min_value=0.000001, step=0.01, value=1.2, format='%.2f',
         help='Factor volumétrico del petróleo (volumen a condiciones de reservorio / volumen a superficie). Rango típico: 1.0 a 2.0.')
-    bo_sd = right_column.number_input('Bo Std. dev', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='bo_sd',
+    bo_sd = row_bo[1].number_input('Bo Std. dev', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='bo_sd',
         help='Incertidumbre de Bo. Sugerido: 0.05 a 0.15.')
 
-    iters_man = right_column.number_input('Iterations', min_value=100, step=1000, value=10000, key='iters_manual',
-        help='Cantidad de simulaciones de Monte Carlo. A más iteraciones, resultado más estable pero más lento. Sugerido: 10.000.')
-    seed_man = left_column.number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0, key='seed_manual',
+    row_run = st.columns(2)
+    seed_man = row_run[0].number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0, key='seed_manual',
         help='Fijá un número distinto de 0 para que la corrida sea reproducible (mismos inputs → mismos resultados). Dejalo en 0 para que sea aleatoria.')
+    iters_man = row_run[1].number_input('Iterations', min_value=100, step=1000, value=10000, key='iters_manual',
+        help='Cantidad de simulaciones de Monte Carlo. A más iteraciones, resultado más estable pero más lento. Sugerido: 10.000.')
 
     use_risk_man = st.checkbox('Include Geological Risk (optional)', value=False, key='use_risk_manual',
         help='Activá esta opción para calcular la probabilidad de éxito geológico (Pg) y los volúmenes riesgados.')
@@ -337,11 +347,8 @@ with st.expander('Manual Input', expanded=False):
         timing_m   = risk_col4.number_input('Timing [%]', min_value=0.0, max_value=100.0, step=1.0, value=95.0, format='%.0f', key='timing_man',
             help='Probabilidad de que la sincronización entre generación, migración y trampa sea favorable. Rango típico: 70% a 99%.')
 
-    case_name_man = left_column.text_input('Nombre del caso', value=f"Manual_{len(st.session_state.saved_cases)+1}", key='case_name_man',
-        help='Con qué nombre se guarda este caso en la comparación. Usá el mismo nombre para actualizar un caso ya guardado.')
-
     # Manual input calc
-    if left_column.button('Compute'):
+    if st.button('Compute'):
         next_seed = make_seed_generator(seed_man)
 
         area = sample_property(area_m, area_sd, iters_man, lower=1e-6, seed=next_seed())
