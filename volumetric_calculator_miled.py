@@ -105,6 +105,13 @@ def make_seed_generator(base_seed):
         return int(base_seed) + state['i']
     return _next
 
+def fmt_number(x, decimals=0):
+    """Formatea un numero con separador de miles ',' y decimal '.'
+    (ej: 1,234.5)."""
+    if x is None or (isinstance(x, (int, float)) and np.isnan(x)):
+        return '-'
+    return f"{x:,.{decimals}f}"
+
 def fmt_vol(x, decimals=1):
     """Formatea un volumen con separador de miles y pocos decimales: sin
     decimales para numeros grandes (tipico en GAS, Mm3 en miles) y con
@@ -112,8 +119,8 @@ def fmt_vol(x, decimals=1):
     if x is None or (isinstance(x, (int, float)) and np.isnan(x)):
         return '-'
     if abs(x) >= 1000:
-        return f"{x:,.0f}"
-    return f"{x:,.{decimals}f}"
+        return fmt_number(x, 0)
+    return fmt_number(x, decimals)
 
 # Sample input template (replaces the old external GitHub Pages link)
 def build_sample_template():
@@ -177,24 +184,29 @@ def build_sample_template():
 
 # @st.cache
 def plot_results():
-    fig1 = sns.displot(value, kind='hist', stat='density', kde=True)
-    if fluid == 'GAS':
-        fig1.set(xlabel='SGIP Mm3', ylabel='Frequency')
-    else:
-        fig1.set(xlabel='STOIP Mm3', ylabel='Frequency')
-    fig1.set(title=str(name)+' - Volume')
-    st.pyplot(fig1)
+    col1, col2 = st.columns(2)
 
-    fig2 = sns.displot(value, kind='ecdf')
-    if fluid == 'GAS':
-        fig2.set(xlabel='SGIP Mm3', ylabel='Probability')
-    else:
-        fig2.set(xlabel='STOIP Mm3', ylabel='Probability')
-    plt.axhline(y=0.9, label='P10', color='red', linestyle='--')
-    plt.axhline(y=0.5, label='P50', color='red', linestyle=':')
-    plt.axhline(y=0.1, label='P90', color='red', linestyle='-.')
-    plt.legend(prop={'size':6})
-    st.pyplot(fig2)
+    with col1:
+        fig1 = sns.displot(value, kind='hist', stat='density', kde=True, height=3.2, aspect=1.15)
+        if fluid == 'GAS':
+            fig1.set(xlabel='SGIP Mm3', ylabel='Frequency')
+        else:
+            fig1.set(xlabel='STOIP Mm3', ylabel='Frequency')
+        fig1.set(title=str(name)+' - Volume')
+        st.pyplot(fig1)
+
+    with col2:
+        fig2 = sns.displot(value, kind='ecdf', height=3.2, aspect=1.15)
+        if fluid == 'GAS':
+            fig2.set(xlabel='SGIP Mm3', ylabel='Probability')
+        else:
+            fig2.set(xlabel='STOIP Mm3', ylabel='Probability')
+        plt.axhline(y=0.9, label='P10', color='red', linestyle='--')
+        plt.axhline(y=0.5, label='P50', color='red', linestyle=':')
+        plt.axhline(y=0.1, label='P90', color='red', linestyle='-.')
+        plt.legend(prop={'size':6})
+        st.pyplot(fig2)
+
     plt.close('all')
 
 # @st.cache
@@ -252,6 +264,8 @@ with st.expander('Manual Input', expanded=False):
 
     area_m = left_column.number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.001, value=1.0, format='%.3f',
         help='Área media del reservorio. Rango típico: 0.1 a 1000 Km².')
+    radius_m = (area_m / np.pi) ** 0.5 * 1000
+    left_column.caption(f"↳ Equivale a un círculo de radio ≈ **{fmt_number(radius_m, 0)} m**")
     area_sd = right_column.number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='area_sd',
         help='Incertidumbre del área (desvío estándar). Sugerido: 10-30% del valor medio.')
 
@@ -334,7 +348,7 @@ with st.expander('Manual Input', expanded=False):
             m1.metric('P90', f"{fmt_vol(p10)} Mm3")
             m2.metric('P50', f"{fmt_vol(p50)} Mm3")
             m3.metric('P10', f"{fmt_vol(p90)} Mm3")
-            m4.metric('Success (Pg)', f"{pro_scc_man*100:.1f}%")
+            m4.metric('Success (Pg)', f"{fmt_number(pro_scc_man*100, 1)}%")
 
             r1, r2, r3 = st.columns(3)
             r1.metric('Risked P90', f"{fmt_vol(p10*pro_scc_man)} Mm3")
@@ -496,8 +510,8 @@ if loaded_file is not None:
 
         with col_33:
             if use_risk:
-                st.metric('Success (Pg)', f"{pro_scc*100:.1f}%")
-            st.metric('Number of Wells', f"{wells_num:.0f}")
+                st.metric('Success (Pg)', f"{fmt_number(pro_scc*100, 1)}%")
+            st.metric('Number of Wells', fmt_number(wells_num, 0))
             st.metric(f'{fluid} Cum per Well', f"{fmt_vol(type_well_cum)} Mm3")
 
         # Plots
