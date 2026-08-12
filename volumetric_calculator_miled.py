@@ -1,20 +1,19 @@
 '''
-Include number of wells for p10, p90
-github page
+Volumetric Calculator - Monte Carlo probabilistic volumetrics for oil & gas prospects.
+Developed by Miled Sefair.
 '''
 
-from scipy.stats import norm
+from scipy.stats import norm, truncnorm
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-import base64
 import io
 
 import streamlit as st
 
-st.set_page_config(page_title='Volumetrics 1.0', 
-                    page_icon='round-pushpin', 
+st.set_page_config(page_title='Volumetric Calculator',
+                    page_icon='📌',
                     initial_sidebar_state='collapsed', 
                     layout='wide')
 
@@ -43,7 +42,7 @@ def set_page_title(title):
         </script>" />
     """)
 
-set_page_title("Volumetrics 1.0")
+set_page_title("Volumetric Calculator")
 
 # Hide Hamburguer menu
 hide_menu_style = """
@@ -83,6 +82,99 @@ def GOIS(area, ht, phi, sw, ntg, bg):
     gois = area*1000*ht*phi*(1-sw)*ntg/bg
     return gois
 
+def sample_property(mean, sd, size, lower=None, upper=None, seed=None):
+    """Muestrea una distribucion normal truncada a [lower, upper] para evitar
+    valores fuera de rango fisico (ej. porosidad negativa, Sw > 1, area < 0).
+    Si sd <= 0, devuelve el valor medio constante."""
+    if sd is None or sd <= 0:
+        return np.full(size, mean)
+    a = (lower - mean) / sd if lower is not None else -np.inf
+    b = (upper - mean) / sd if upper is not None else np.inf
+    return truncnorm(a, b, loc=mean, scale=sd).rvs(size, random_state=seed)
+
+def make_seed_generator(base_seed):
+    """Genera semillas incrementales a partir de una semilla base, para que cada
+    propiedad muestreada use un stream aleatorio distinto (evita correlacion
+    espuria entre variables) pero el resultado completo sea reproducible.
+    Si base_seed es None o 0, devuelve None siempre (comportamiento aleatorio)."""
+    if not base_seed:
+        return lambda: None
+    state = {'i': 0}
+    def _next():
+        state['i'] += 1
+        return int(base_seed) + state['i']
+    return _next
+
+def fmt_vol(x, decimals=1):
+    """Formatea un volumen con separador de miles y pocos decimales: sin
+    decimales para numeros grandes (tipico en GAS, Mm3 en miles) y con
+    `decimals` para numeros chicos (tipico en OIL)."""
+    if x is None or (isinstance(x, (int, float)) and np.isnan(x)):
+        return '-'
+    if abs(x) >= 1000:
+        return f"{x:,.0f}"
+    return f"{x:,.{decimals}f}"
+
+# Sample input template (replaces the old external GitHub Pages link)
+def build_sample_template():
+    template_cols = [
+        'NAME', 'FLUID', 'DEPTH',
+        'AREA', 'AREA_SD', 'HT', 'HT_SD', 'PHI', 'PHI_SD',
+        'NTG', 'NTG_SD', 'SW', 'SW_SD', 'RF', 'RF_SD',
+        'BO', 'BO_SD', 'BG', 'BG_SD',
+        'D_AREA',
+        'TRAPSEAL', 'RESROCK', 'SRCMIG', 'TIMING'
+    ]
+
+    sample_rows = [
+        {
+            'NAME': 'Prospecto_Oil_A', 'FLUID': 'OIL', 'DEPTH': 2500,
+            'AREA': 3.5, 'AREA_SD': 0.5, 'HT': 8.0, 'HT_SD': 1.0,
+            'PHI': 0.18, 'PHI_SD': 0.02, 'NTG': 0.6, 'NTG_SD': 0.1,
+            'SW': 0.3, 'SW_SD': 0.05, 'RF': 0.2, 'RF_SD': 0.05,
+            'BO': 1.2, 'BO_SD': 0.05, 'BG': '', 'BG_SD': '',
+            'D_AREA': 40,
+            'TRAPSEAL': 80, 'RESROCK': 90, 'SRCMIG': 85, 'TIMING': 95
+        },
+        {
+            'NAME': 'Prospecto_Gas_B', 'FLUID': 'GAS', 'DEPTH': 3100,
+            'AREA': 5.0, 'AREA_SD': 0.8, 'HT': 12.0, 'HT_SD': 2.0,
+            'PHI': 0.15, 'PHI_SD': 0.02, 'NTG': 0.5, 'NTG_SD': 0.1,
+            'SW': 0.35, 'SW_SD': 0.05, 'RF': 0.6, 'RF_SD': 0.1,
+            'BO': '', 'BO_SD': '', 'BG': 0.006, 'BG_SD': 0.001,
+            'D_AREA': 60,
+            'TRAPSEAL': 70, 'RESROCK': 85, 'SRCMIG': 80, 'TIMING': 90
+        }
+    ]
+
+    template_df = pd.DataFrame(sample_rows, columns=template_cols)
+
+    iowrite = io.BytesIO()
+    with pd.ExcelWriter(iowrite, engine='openpyxl') as writer:
+        template_df.to_excel(writer, index=False, sheet_name='Input')
+
+        instructions = pd.DataFrame({
+            'Columna': template_cols,
+            'Descripcion': [
+                'Nombre del prospecto/pozo', 'Tipo de fluido: OIL o GAS', 'Profundidad (informativo, m)',
+                'Area media [Km2]', 'Desvio estandar de Area', 'Espesor medio [m]', 'Desvio estandar de Espesor',
+                'Porosidad media [fraccion]', 'Desvio estandar de Porosidad',
+                'Net-to-Gross medio [fraccion]', 'Desvio estandar de NTG',
+                'Saturacion de agua media [fraccion]', 'Desvio estandar de Sw',
+                'Factor de recobro medio [fraccion]', 'Desvio estandar de RF',
+                'Factor volumetrico de petroleo (dejar vacio si FLUID=GAS)', 'Desvio estandar de Bo',
+                'Factor volumetrico de gas (dejar vacio si FLUID=OIL)', 'Desvio estandar de Bg',
+                'Area de drenaje por pozo [Ha]',
+                'Probabilidad de Trampa/Sello [%] (opcional, solo si se usa riesgo geologico)',
+                'Probabilidad de Roca Reservorio [%] (opcional)',
+                'Probabilidad de Generacion/Migracion [%] (opcional)',
+                'Probabilidad de Timing [%] (opcional)'
+            ]
+        })
+        instructions.to_excel(writer, index=False, sheet_name='Instrucciones')
+
+    return iowrite.getvalue()
+
 # @st.cache
 def plot_results():
     fig1 = sns.displot(value, kind='hist', stat='density', kde=True)
@@ -103,6 +195,7 @@ def plot_results():
     plt.axhline(y=0.1, label='P90', color='red', linestyle='-.')
     plt.legend(prop={'size':6})
     st.pyplot(fig2)
+    plt.close('all')
 
 # @st.cache
 def plot_properties_dist():
@@ -147,9 +240,11 @@ def plot_properties_dist():
         fig_bo.set(title=str(name)+' - Bo')
         st.pyplot(fig_bo)
 
+    plt.close('all')
+
 
 st.title('Volumetric Calculator')
-st.caption('Developed by Miled Sefair · Contact: milosefairgmail.com')
+st.caption('Developed by Miled Sefair · Contact: milosefair@gmail.com')
 
 ### Manual Input
 with st.expander('Manual Input', expanded=False):
@@ -177,89 +272,124 @@ with st.expander('Manual Input', expanded=False):
     bo_sd = right_column.number_input('Bo Std. dev', min_value=0.000001, step=0.001, value=0.1, format='%.6f', key='bo_sd')
 
     iters_man = right_column.number_input('Iterations', min_value=100, step=1000, value=10000, key='iters_manual')
+    seed_man = left_column.number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0, key='seed_manual')
 
     # Manual input calc
     if left_column.button('Compute'):
-        area = norm(area_m, area_sd).rvs(iters_man)
-        ht   = norm(ht_m, ht_sd).rvs(iters_man)
-        phi  = norm(phi_m, phi_sd).rvs(iters_man)
-        ntg  = norm(ntg_m, ntg_sd).rvs(iters_man)
-        sw   = norm(sw_m, sw_sd).rvs(iters_man)
-        rf   = norm(rf_m, rf_sd).rvs(iters_man)
-        bo   = norm(bo_m, bo_sd).rvs(iters_man)
+        next_seed = make_seed_generator(seed_man)
 
+        area = sample_property(area_m, area_sd, iters_man, lower=1e-6, seed=next_seed())
+        ht   = sample_property(ht_m, ht_sd, iters_man, lower=1e-6, seed=next_seed())
+        phi  = sample_property(phi_m, phi_sd, iters_man, lower=0.0, upper=1.0, seed=next_seed())
+        ntg  = sample_property(ntg_m, ntg_sd, iters_man, lower=0.0, upper=1.0, seed=next_seed())
+        sw   = sample_property(sw_m, sw_sd, iters_man, lower=0.0, upper=1.0, seed=next_seed())
+        rf   = sample_property(rf_m, rf_sd, iters_man, lower=0.0, upper=1.0, seed=next_seed())
+        bo   = sample_property(bo_m, bo_sd, iters_man, lower=1e-6, seed=next_seed())
+
+        name = 'Manual Input'
+        fluid = 'OIL'
         value = STOIP(area, ht, phi, sw, ntg, rf, bo)
-        # value = OOIP(area_m, ht_m, phi_m, sw_m,ntg_m, rf_m, bo_m) # single calc from input
-        # st.write(value.mean(), 'Mm3')
 
         p10 = np.percentile(value,10)
         p50 = np.percentile(value,50)
         p90 = np.percentile(value,90)
 
-        st.write('P90 : ', p10, 'Mm3')
-        st.write('P50 : ', p50, 'Mm3')
-        st.write('P10 : ', p90, 'Mm3')
+        m1, m2, m3 = st.columns(3)
+        m1.metric('P90', f"{fmt_vol(p10)} Mm3")
+        m2.metric('P50', f"{fmt_vol(p50)} Mm3")
+        m3.metric('P10', f"{fmt_vol(p90)} Mm3")
 
-        fig1 = sns.displot(value, kind='hist', stat='density', kde=True)
-        fig1.set(xlabel='STOIP Mm3', ylabel='Frequency')
-        st.pyplot(fig1)
-
-        fig2 = sns.displot(value, kind='ecdf')
-        fig2.set(xlabel='STOIP Mm3', ylabel='Probability')
-        plt.axhline(y=0.9, label='P10', color='red', linestyle='--')
-        plt.axhline(y=0.5, label='P50', color='red', linestyle=':')
-        plt.axhline(y=0.1, label='P90', color='red', linestyle='-.')
-        st.pyplot(fig2)
+        plot_results()
 
         st.success('Completed!')
 
 st.markdown('***')
 
 ### File upload calculations
+st.download_button(
+    label='📥 Download Sample Input Template',
+    data=build_sample_template(),
+    file_name='volumetrics_input_template.xlsx',
+    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    help='Plantilla de Excel con los valores de carga iniciales y una hoja de instrucciones.'
+)
+
 loaded_file = st.file_uploader('File Input',type=['xlsx'])
 
-sample_url = '[See Instructions and Download Sample Input Template](https://jlrp132.github.io/og_volumetrics/)'
-st.markdown(sample_url, unsafe_allow_html=True)
-
-iters = st.number_input('Iterations', value=10000)
+col_iters, col_seed = st.columns(2)
+iters = col_iters.number_input('Iterations', min_value=100, step=1000, value=10000)
+seed = col_seed.number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0,
+                              help='Fijá un valor distinto de 0 para que la corrida sea reproducible.')
 
 # Graph output selection
-left_col_2, right_col_2 = st.columns(2)
+left_col_2, right_col_2, right_col_3 = st.columns(3)
 
 graph_out = left_col_2.checkbox(label='Show Graphics')
 graph_prop = right_col_2.checkbox(label='Show Properties Distribution')
+use_risk = right_col_3.checkbox(label='Include Geological Risk (optional)', value=False)
 
 if loaded_file is not None:
     df = pd.read_excel(loaded_file)
     # st.dataframe(df)
 
+    required_cols = ['NAME', 'FLUID', 'AREA', 'AREA_SD', 'HT', 'HT_SD',
+                      'PHI', 'PHI_SD', 'NTG', 'NTG_SD', 'SW', 'SW_SD',
+                      'RF', 'RF_SD', 'D_AREA']
+    missing_required = [c for c in required_cols if c not in df.columns]
+    if missing_required:
+        st.error(f"El archivo subido no tiene las columnas requeridas: {', '.join(missing_required)}. "
+                  "Descargá la plantilla de ejemplo y respetá los nombres de columna.")
+        st.stop()
+
+    next_seed = make_seed_generator(seed)
+
     for p in range(len(df)):
         name = df['NAME'][p]
-        st.subheader(name)
+
+        card = st.container(border=True)
+        card.subheader(name)
 
         # read parameters
         fluid = df['FLUID'][p]
-        
-        area = norm(df['AREA'][p], df['AREA_SD'][p]).rvs(iters)
-        ht   = norm(df['HT'][p], df['HT_SD'][p]).rvs(iters)
-        phi  = norm(df['PHI'][p], df['PHI_SD'][p]).rvs(iters)
-        ntg  = norm(df['NTG'][p], df['NTG_SD'][p]).rvs(iters)
-        sw   = norm(df['SW'][p], df['SW_SD'][p]).rvs(iters)
-        rf   = norm(df['RF'][p], df['RF_SD'][p]).rvs(iters)
+
+        vol_factor_cols = ['BG', 'BG_SD'] if fluid == 'GAS' else ['BO', 'BO_SD']
+        missing_vol_factor = [c for c in vol_factor_cols if c not in df.columns or pd.isna(df[c][p])]
+        if missing_vol_factor:
+            card.error(f"Faltan los valores {', '.join(missing_vol_factor)} requeridos para fluido {fluid}.")
+            st.stop()
+
+        area = sample_property(df['AREA'][p], df['AREA_SD'][p], iters, lower=1e-6, seed=next_seed())
+        ht   = sample_property(df['HT'][p], df['HT_SD'][p], iters, lower=1e-6, seed=next_seed())
+        phi  = sample_property(df['PHI'][p], df['PHI_SD'][p], iters, lower=0.0, upper=1.0, seed=next_seed())
+        ntg  = sample_property(df['NTG'][p], df['NTG_SD'][p], iters, lower=0.0, upper=1.0, seed=next_seed())
+        sw   = sample_property(df['SW'][p], df['SW_SD'][p], iters, lower=0.0, upper=1.0, seed=next_seed())
+        rf   = sample_property(df['RF'][p], df['RF_SD'][p], iters, lower=0.0, upper=1.0, seed=next_seed())
         if fluid == 'GAS':
-            bg   = norm(df['BG'][p], df['BG_SD'][p]).rvs(iters) # for gas
-        else:            
-            bo   = norm(df['BO'][p], df['BO_SD'][p]).rvs(iters) # for oil
+            bg   = sample_property(df['BG'][p], df['BG_SD'][p], iters, lower=1e-6, seed=next_seed()) # for gas
+        else:
+            bo   = sample_property(df['BO'][p], df['BO_SD'][p], iters, lower=1e-6, seed=next_seed()) # for oil
         
         # Drainage Area (Ha)
         d_area = df['D_AREA'][p]
+        if pd.isna(d_area) or d_area <= 0:
+            card.error("D_AREA debe ser un número mayor a 0.")
+            st.stop()
 
-        # Risk data
-        pro_ts = df['TRAPSEAL'][p]/100
-        pro_rr = df['RESROCK'][p]/100
-        pro_sm = df['SRCMIG'][p]/100
-        pro_ti = df['TIMING'][p]/100
-        pro_scc = (pro_ts * pro_rr * pro_sm * pro_ti)
+        # Risk data (optional geological risk calculation)
+        if use_risk:
+            risk_cols = ['TRAPSEAL', 'RESROCK', 'SRCMIG', 'TIMING']
+            missing_risk_cols = [c for c in risk_cols if c not in df.columns or pd.isna(df[c][p])]
+            if missing_risk_cols:
+                card.warning(f"Faltan valores de riesgo ({', '.join(missing_risk_cols)}). Se asume probabilidad de éxito = 100% para este prospecto.")
+                pro_scc = 1.0
+            else:
+                pro_ts = df['TRAPSEAL'][p]/100
+                pro_rr = df['RESROCK'][p]/100
+                pro_sm = df['SRCMIG'][p]/100
+                pro_ti = df['TIMING'][p]/100
+                pro_scc = (pro_ts * pro_rr * pro_sm * pro_ti)
+        else:
+            pro_scc = 1.0
 
         # Calculate volumes (stock tank)
         if fluid == 'OIL':
@@ -289,119 +419,76 @@ if loaded_file is not None:
         # type well cummulative
         type_well_cum = p50/wells_num
 
-        # Text Output
-        col_30, col_31, col_32, col_33 = st.columns(4)
-        
+        # Metric cards
+        if use_risk:
+            col_30, col_31, col_32, col_33 = card.columns(4)
+        else:
+            col_30, col_31, col_33 = card.columns(3)
+
         with col_30:
-            st.write('P90 In Place: ', p10_ip, 'Mm3')
-            st.write('P50 In Place: ', p50_ip, 'Mm3')
-            st.write('P10 In Place: ', p90_ip, 'Mm3')
+            st.metric('P90 In Place', f"{fmt_vol(p10_ip)} Mm3")
+            st.metric('P50 In Place', f"{fmt_vol(p50_ip)} Mm3")
+            st.metric('P10 In Place', f"{fmt_vol(p90_ip)} Mm3")
 
         with col_31:
-            st.write('P90 : ', round(p10,1), 'Mm3')
-            st.write('P50 : ', round(p50,1), 'Mm3')
-            st.write('P10 : ', round(p90,1), 'Mm3')
-        
-        with col_32:
-            st.write('Risked P90 : ', round(p10*pro_scc,1), 'Mm3')
-            st.write('Risked P50 : ', round(p50*pro_scc,1), 'Mm3')
-            st.write('Risked P10 : ', round(p90*pro_scc,1), 'Mm3')
+            st.metric('P90', f"{fmt_vol(p10)} Mm3")
+            st.metric('P50', f"{fmt_vol(p50)} Mm3")
+            st.metric('P10', f"{fmt_vol(p90)} Mm3")
 
-        with col_33:            
-            st.write('Success: ', round((pro_scc*100),3), '%')
-            st.write('Number of wells: ', round(wells_num))
-            st.write(fluid + ' Cum per well: ', round(type_well_cum,1), 'Mm3')
+        if use_risk:
+            with col_32:
+                st.metric('Risked P90', f"{fmt_vol(p10*pro_scc)} Mm3")
+                st.metric('Risked P50', f"{fmt_vol(p50*pro_scc)} Mm3")
+                st.metric('Risked P10', f"{fmt_vol(p90*pro_scc)} Mm3")
+
+        with col_33:
+            if use_risk:
+                st.metric('Success (Pg)', f"{pro_scc*100:.1f}%")
+            st.metric('Number of Wells', f"{wells_num:.0f}")
+            st.metric(f'{fluid} Cum per Well', f"{fmt_vol(type_well_cum)} Mm3")
 
         # Plots
-        if graph_out: 
-            with st.expander('Volume Graph'):
+        if graph_out:
+            with card.expander('Volume Graph'):
                 plot_results()
-                # fig1 = sns.displot(value, kind='hist', stat='density', kde=True)
-                # if fluid == 'GAS':
-                #     fig1.set(xlabel='SGIP Mm3', ylabel='Frequency')
-                # else:
-                #     fig1.set(xlabel='STOIP Mm3', ylabel='Frequency')
-                # fig1.set(title=str(name)+' - Volume')
-                # st.pyplot(fig1)
-
-                # fig2 = sns.displot(value, kind='ecdf')
-                # if fluid == 'GAS':
-                #     fig2.set(xlabel='SGIP Mm3', ylabel='Probability')
-                # else:
-                #     fig2.set(xlabel='STOIP Mm3', ylabel='Probability')
-                # plt.axhline(y=0.9, label='P10', color='red', linestyle='--')
-                # plt.axhline(y=0.5, label='P50', color='red', linestyle=':')
-                # plt.axhline(y=0.1, label='P90', color='red', linestyle='-.')
-                # plt.legend(prop={'size':6})
-                # st.pyplot(fig2)
 
         if graph_prop:
-            with st.expander('Properties Graph'):
+            with card.expander('Properties Graph'):
                 plot_properties_dist()
 
-                # fig_area = sns.displot(area, kind='hist', stat='density', kde=True)
-                # fig_area.set(xlabel='Surface Area (Km2)', ylabel='Probability')
-                # fig_area.set(title=str(name)+' - Area')
-                # st.pyplot(fig_area)
-
-                # fig_ht = sns.displot(ht, kind='hist', stat='density', kde=True)
-                # fig_ht.set(xlabel='Thickness (m)', ylabel='Probability')
-                # fig_ht.set(title=str(name)+' - Thickness')
-                # st.pyplot(fig_ht)
-
-                # fig_phi = sns.displot(phi, kind='hist', stat='density', kde=True)
-                # fig_phi.set(xlabel='Porosity (fr)', ylabel='Probability')
-                # fig_phi.set(title=str(name)+' - Porosity')
-                # st.pyplot(fig_phi)
-
-                # fig_ntg = sns.displot(ntg, kind='hist', stat='density', kde=True)
-                # fig_ntg.set(xlabel='Net-to-Gross (fr)', ylabel='Probability')
-                # fig_ntg.set(title=str(name)+' - Net-to-Gross')
-                # st.pyplot(fig_ntg)
-
-                # fig_sw = sns.displot(sw, kind='hist', stat='density', kde=True)
-                # fig_sw.set(xlabel='Water Saturation (fr)', ylabel='Probability')
-                # fig_sw.set(title=str(name)+' - Water Saturation')
-                # st.pyplot(fig_sw)
-
-                # fig_rf = sns.displot(rf, kind='hist', stat='density', kde=True)
-                # fig_rf.set(xlabel='Recovery Factor (fr)', ylabel='Probability')
-                # fig_rf.set(title=str(name)+' - Recovery Factor')
-                # st.pyplot(fig_rf)
-
-                # if fluid == 'GAS':
-                #     fig_bg = sns.displot(bg, kind='hist', stat='density', kde=True)
-                #     fig_bg.set(xlabel=' Gas Volumetric Factor (fr)', ylabel='Probability')
-                #     fig_bg.set(title=str(name)+' - Bg')
-                #     st.pyplot(fig_bg)
-                # else:
-                #     fig_bo = sns.displot(bo, kind='hist', stat='density', kde=True)
-                #     fig_bo.set(xlabel=' Oil Volumetric Factor (fr)', ylabel='Probability')
-                #     fig_bo.set(title=str(name)+' - Bo')
-                #     st.pyplot(fig_bo)
-
         # Write data in dataframe
-        df.loc[p,'p90_ip_'+ fluid] = p10_ip
-        df.loc[p,'p50_ip_'+ fluid] = p50_ip
-        df.loc[p,'p10_ip_'+ fluid] = p90_ip
-        df.loc[p,'p90_'+ fluid] = p10
-        df.loc[p,'p50_'+ fluid] = p50
-        df.loc[p,'p10_'+ fluid] = p90
-        df.loc[p,'Rsk_p90_'+ fluid] = round(p10*pro_scc,2)
-        df.loc[p,'Rsk_p50_'+ fluid] = round(p50*pro_scc,2)
-        df.loc[p,'Rsk_p10_'+ fluid] = round(p90*pro_scc,2)
-        df.loc[p,'Succ_PROB'] = pro_scc*100
+        df.loc[p,'P90_IP'] = p10_ip
+        df.loc[p,'P50_IP'] = p50_ip
+        df.loc[p,'P10_IP'] = p90_ip
+        df.loc[p,'P90'] = p10
+        df.loc[p,'P50'] = p50
+        df.loc[p,'P10'] = p90
+        if use_risk:
+            df.loc[p,'Rsk_P90'] = round(p10*pro_scc,2)
+            df.loc[p,'Rsk_P50'] = round(p50*pro_scc,2)
+            df.loc[p,'Rsk_P10'] = round(p90*pro_scc,2)
+            df.loc[p,'Succ_PROB'] = pro_scc*100
         df.loc[p,'Wells'] = round(wells_num)
-        df.loc[p,'Well_Type_'+ fluid] = round(type_well_cum,1)
+        df.loc[p,'Well_Type_Cum'] = round(type_well_cum,1)
 
     # Summary table
     st.subheader('Summary')
 
-    hide_col = ['AREA_SD','AREA_SD','HT_SD','PHI_SD','NTG_SD','SW_SD','RF_SD','BO_SD','BG_SD',
+    hide_col = ['AREA_SD','HT_SD','PHI_SD','NTG_SD','SW_SD','RF_SD','BO_SD','BG_SD',
                 'TRAPSEAL','RESROCK','SRCMIG','TIMING','D_AREA',
-                'HT','PHI','NTG','SW', 'RF','BO','BG','FLUID','AREA','DEPTH']
+                'HT','PHI','NTG','SW', 'RF','BO','BG','AREA','DEPTH']
 
-    st.dataframe(df.drop(hide_col, axis=1).set_index('NAME').fillna(value=''))
+    summary_df = df.drop(hide_col, axis=1, errors='ignore').set_index('NAME')
+
+    vol_cols = [c for c in ['P90_IP','P50_IP','P10_IP','P90','P50','P10',
+                             'Rsk_P90','Rsk_P50','Rsk_P10','Well_Type_Cum'] if c in summary_df.columns]
+    column_config = {c: st.column_config.NumberColumn(format="%,.0f Mm³") for c in vol_cols}
+    if 'Wells' in summary_df.columns:
+        column_config['Wells'] = st.column_config.NumberColumn(format="%.0f")
+    if 'Succ_PROB' in summary_df.columns:
+        column_config['Succ_PROB'] = st.column_config.NumberColumn(format="%.1f%%")
+
+    st.dataframe(summary_df, column_config=column_config)
 
     show_input = st.checkbox(label='Show Input Data')
     if show_input:
@@ -421,4 +508,4 @@ if loaded_file is not None:
 
 
 st.markdown('---')
-st.caption('Volumetric Calculator · Developed by Miled Sefair · Contact: milosefairgmail.com')
+st.caption('Volumetric Calculator · Developed by Miled Sefair · Contact: milosefair@gmail.com')
