@@ -73,9 +73,12 @@ if 'saved_cases' not in st.session_state:
     st.session_state.saved_cases = {}
 
 def save_case(name, fluid, p10, p50, p90, p10_ip=None, p50_ip=None, p90_ip=None,
-              risked=None, success=None, wells=None, well_type_cum=None, source='Manual'):
-    """Guarda (o actualiza si ya existe) un caso en la comparación de la sesión actual."""
-    st.session_state.saved_cases[name] = {
+              risked=None, success=None, wells=None, well_type_cum=None, source='Manual',
+              inputs=None):
+    """Guarda (o actualiza si ya existe) un caso en la comparación de la sesión actual.
+    `inputs` es un dict opcional con las variables de entrada y sus desvíos estándar
+    (Area, Area_SD, HT, HT_SD, PHI, PHI_SD, NTG, NTG_SD, SW, SW_SD, RF, RF_SD, BO, BO_SD, BG, BG_SD)."""
+    entry = {
         'Fluid': fluid, 'Source': source,
         'P90_IP': p10_ip, 'P50_IP': p50_ip, 'P10_IP': p90_ip,
         'P90': p10, 'P50': p50, 'P10': p90,
@@ -86,6 +89,9 @@ def save_case(name, fluid, p10, p50, p90, p10_ip=None, p50_ip=None, p90_ip=None,
         'Wells': wells if wells is not None else np.nan,
         'Well_Type_Cum': well_type_cum if well_type_cum is not None else np.nan,
     }
+    if inputs:
+        entry.update(inputs)
+    st.session_state.saved_cases[name] = entry
 
 def encode_cases_to_link(cases_dict):
     """Comprime y codifica los casos guardados en un string apto para poner en la URL."""
@@ -393,6 +399,17 @@ with st.expander('Manual Input', expanded=False):
         p50 = np.percentile(value,50)
         p90 = np.percentile(value,90)
 
+        input_vars = {
+            'Area': area_m, 'Area_SD': area_sd,
+            'HT': ht_m, 'HT_SD': ht_sd,
+            'PHI': phi_m, 'PHI_SD': phi_sd,
+            'NTG': ntg_m, 'NTG_SD': ntg_sd,
+            'SW': sw_m, 'SW_SD': sw_sd,
+            'RF': rf_m, 'RF_SD': rf_sd,
+            'BO': bo_m, 'BO_SD': bo_sd,
+            'BG': np.nan, 'BG_SD': np.nan,
+        }
+
         if use_risk_man:
             pro_scc_man = (trapseal_m/100) * (resrock_m/100) * (srcmig_m/100) * (timing_m/100)
             m1, m2, m3, m4 = st.columns(4)
@@ -408,14 +425,14 @@ with st.expander('Manual Input', expanded=False):
 
             save_case(name, fluid, p10, p50, p90,
                       risked=(p10*pro_scc_man, p50*pro_scc_man, p90*pro_scc_man),
-                      success=pro_scc_man*100, source='Manual')
+                      success=pro_scc_man*100, source='Manual', inputs=input_vars)
         else:
             m1, m2, m3 = st.columns(3)
             m1.metric('P90', f"{fmt_vol(p10)} Mm3")
             m2.metric('P50', f"{fmt_vol(p50)} Mm3")
             m3.metric('P10', f"{fmt_vol(p90)} Mm3")
 
-            save_case(name, fluid, p10, p50, p90, source='Manual')
+            save_case(name, fluid, p10, p50, p90, source='Manual', inputs=input_vars)
 
         plot_results()
 
@@ -544,10 +561,22 @@ if loaded_file is not None:
         type_well_cum = p50/wells_num
 
         # Guardar caso en la comparación de la sesión
+        input_vars = {
+            'Area': df['AREA'][p], 'Area_SD': df['AREA_SD'][p],
+            'HT': df['HT'][p], 'HT_SD': df['HT_SD'][p],
+            'PHI': df['PHI'][p], 'PHI_SD': df['PHI_SD'][p],
+            'NTG': df['NTG'][p], 'NTG_SD': df['NTG_SD'][p],
+            'SW': df['SW'][p], 'SW_SD': df['SW_SD'][p],
+            'RF': df['RF'][p], 'RF_SD': df['RF_SD'][p],
+            'BO': df['BO'][p] if fluid == 'OIL' else np.nan,
+            'BO_SD': df['BO_SD'][p] if fluid == 'OIL' else np.nan,
+            'BG': df['BG'][p] if fluid == 'GAS' else np.nan,
+            'BG_SD': df['BG_SD'][p] if fluid == 'GAS' else np.nan,
+        }
         save_case(name, fluid, p10, p50, p90, p10_ip, p50_ip, p90_ip,
                   risked=(p10*pro_scc, p50*pro_scc, p90*pro_scc) if use_risk else None,
                   success=pro_scc*100 if use_risk else None,
-                  wells=wells_num, well_type_cum=type_well_cum, source='Excel')
+                  wells=wells_num, well_type_cum=type_well_cum, source='Excel', inputs=input_vars)
 
         # Metric cards
         if use_risk:
@@ -656,6 +685,32 @@ else:
         comp_column_config['Success_%'] = st.column_config.NumberColumn(format="%.1f%%")
 
     st.dataframe(comp_df, column_config=comp_column_config)
+
+    # Resumen de variables de entrada (con desvíos estándar) de cada caso
+    input_cols = [c for c in ['Area','Area_SD','HT','HT_SD','PHI','PHI_SD','NTG','NTG_SD',
+                               'SW','SW_SD','RF','RF_SD','BO','BO_SD','BG','BG_SD'] if c in comp_df.columns]
+    if input_cols:
+        with st.expander('🔧 Variables de entrada de cada caso (con desvíos estándar)'):
+            vars_df = comp_df[['Fluid'] + input_cols]
+            vars_column_config = {
+                'Area': st.column_config.NumberColumn('Area [Km²]', format="%.3f"),
+                'Area_SD': st.column_config.NumberColumn('Area SD', format="%.4f"),
+                'HT': st.column_config.NumberColumn('Thickness [m]', format="%.1f"),
+                'HT_SD': st.column_config.NumberColumn('Thickness SD', format="%.4f"),
+                'PHI': st.column_config.NumberColumn('Porosity', format="%.2f"),
+                'PHI_SD': st.column_config.NumberColumn('Porosity SD', format="%.4f"),
+                'NTG': st.column_config.NumberColumn('NTG', format="%.2f"),
+                'NTG_SD': st.column_config.NumberColumn('NTG SD', format="%.4f"),
+                'SW': st.column_config.NumberColumn('Sw', format="%.2f"),
+                'SW_SD': st.column_config.NumberColumn('Sw SD', format="%.4f"),
+                'RF': st.column_config.NumberColumn('RF', format="%.2f"),
+                'RF_SD': st.column_config.NumberColumn('RF SD', format="%.4f"),
+                'BO': st.column_config.NumberColumn('Bo', format="%.2f"),
+                'BO_SD': st.column_config.NumberColumn('Bo SD', format="%.4f"),
+                'BG': st.column_config.NumberColumn('Bg', format="%.4f"),
+                'BG_SD': st.column_config.NumberColumn('Bg SD', format="%.4f"),
+            }
+            st.dataframe(vars_df, column_config=vars_column_config)
 
     # Gráfico comparativo P90-P50-P10 por caso
     chart_df = comp_df.dropna(subset=['P90', 'P50', 'P10'])
