@@ -65,6 +65,25 @@ div[data-testid="stMetric"] {
 </style>
 """, unsafe_allow_html=True)
 
+# Casos guardados para comparar (dura solo mientras esté abierta la sesión del navegador)
+if 'saved_cases' not in st.session_state:
+    st.session_state.saved_cases = {}
+
+def save_case(name, fluid, p10, p50, p90, p10_ip=None, p50_ip=None, p90_ip=None,
+              risked=None, success=None, wells=None, well_type_cum=None, source='Manual'):
+    """Guarda (o actualiza si ya existe) un caso en la comparación de la sesión actual."""
+    st.session_state.saved_cases[name] = {
+        'Fluid': fluid, 'Source': source,
+        'P90_IP': p10_ip, 'P50_IP': p50_ip, 'P10_IP': p90_ip,
+        'P90': p10, 'P50': p50, 'P10': p90,
+        'Rsk_P90': risked[0] if risked else np.nan,
+        'Rsk_P50': risked[1] if risked else np.nan,
+        'Rsk_P10': risked[2] if risked else np.nan,
+        'Success_%': success if success is not None else np.nan,
+        'Wells': wells if wells is not None else np.nan,
+        'Well_Type_Cum': well_type_cum if well_type_cum is not None else np.nan,
+    }
+
 # funcions
 def STOIP(area, ht, phi, sw, ntg, rf, bo):
     stoip = (area*1000*ht*phi*(1-sw)*ntg*rf)/bo
@@ -318,9 +337,8 @@ with st.expander('Manual Input', expanded=False):
         timing_m   = risk_col4.number_input('Timing [%]', min_value=0.0, max_value=100.0, step=1.0, value=95.0, format='%.0f', key='timing_man',
             help='Probabilidad de que la sincronización entre generación, migración y trampa sea favorable. Rango típico: 70% a 99%.')
 
-
-
-
+    case_name_man = left_column.text_input('Nombre del caso', value=f"Manual_{len(st.session_state.saved_cases)+1}", key='case_name_man',
+        help='Con qué nombre se guarda este caso en la comparación. Usá el mismo nombre para actualizar un caso ya guardado.')
 
     # Manual input calc
     if left_column.button('Compute'):
@@ -334,7 +352,7 @@ with st.expander('Manual Input', expanded=False):
         rf   = sample_property(rf_m, rf_sd, iters_man, lower=0.0, upper=1.0, seed=next_seed())
         bo   = sample_property(bo_m, bo_sd, iters_man, lower=1e-6, seed=next_seed())
 
-        name = 'Manual Input'
+        name = case_name_man if case_name_man else 'Manual Input'
         fluid = 'OIL'
         value = STOIP(area, ht, phi, sw, ntg, rf, bo)
 
@@ -354,15 +372,21 @@ with st.expander('Manual Input', expanded=False):
             r1.metric('Risked P90', f"{fmt_vol(p10*pro_scc_man)} Mm3")
             r2.metric('Risked P50', f"{fmt_vol(p50*pro_scc_man)} Mm3")
             r3.metric('Risked P10', f"{fmt_vol(p90*pro_scc_man)} Mm3")
+
+            save_case(name, fluid, p10, p50, p90,
+                      risked=(p10*pro_scc_man, p50*pro_scc_man, p90*pro_scc_man),
+                      success=pro_scc_man*100, source='Manual')
         else:
             m1, m2, m3 = st.columns(3)
             m1.metric('P90', f"{fmt_vol(p10)} Mm3")
             m2.metric('P50', f"{fmt_vol(p50)} Mm3")
             m3.metric('P10', f"{fmt_vol(p90)} Mm3")
 
+            save_case(name, fluid, p10, p50, p90, source='Manual')
+
         plot_results()
 
-        st.success('Completed!')
+        st.success(f"Completed! Caso guardado en la comparación como **{name}**.")
 
 st.markdown('***')
 
@@ -486,6 +510,12 @@ if loaded_file is not None:
         # type well cummulative
         type_well_cum = p50/wells_num
 
+        # Guardar caso en la comparación de la sesión
+        save_case(name, fluid, p10, p50, p90, p10_ip, p50_ip, p90_ip,
+                  risked=(p10*pro_scc, p50*pro_scc, p90*pro_scc) if use_risk else None,
+                  success=pro_scc*100 if use_risk else None,
+                  wells=wells_num, well_type_cum=type_well_cum, source='Excel')
+
         # Metric cards
         if use_risk:
             col_30, col_31, col_32, col_33 = card.columns(4)
@@ -570,9 +600,53 @@ if loaded_file is not None:
             file_name='output.xlsx',
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-    
-
 
 
 st.markdown('---')
+
+### Comparación de casos guardados (dura mientras esté abierta esta sesión del navegador)
+st.subheader('📊 Comparación de casos')
+
+if not st.session_state.saved_cases:
+    st.caption('Todavía no guardaste ningún caso. Calculá un caso en "Manual Input" o cargá un Excel: '
+               'cada uno se agrega acá automáticamente para comparar.')
+else:
+    comp_df = pd.DataFrame.from_dict(st.session_state.saved_cases, orient='index')
+    comp_df.index.name = 'NAME'
+
+    comp_vol_cols = [c for c in ['P90_IP','P50_IP','P10_IP','P90','P50','P10',
+                                  'Rsk_P90','Rsk_P50','Rsk_P10','Well_Type_Cum'] if c in comp_df.columns]
+    comp_column_config = {c: st.column_config.NumberColumn(format="%,.0f Mm³") for c in comp_vol_cols}
+    if 'Wells' in comp_df.columns:
+        comp_column_config['Wells'] = st.column_config.NumberColumn(format="%.0f")
+    if 'Success_%' in comp_df.columns:
+        comp_column_config['Success_%'] = st.column_config.NumberColumn(format="%.1f%%")
+
+    st.dataframe(comp_df, column_config=comp_column_config)
+
+    # Gráfico comparativo P90-P50-P10 por caso
+    chart_df = comp_df.dropna(subset=['P90', 'P50', 'P10'])
+    if len(chart_df) >= 1:
+        fig, ax = plt.subplots(figsize=(8, max(1.2, 0.6 * len(chart_df) + 0.8)))
+        y_pos = list(range(len(chart_df)))
+        p50_vals = chart_df['P50'].values
+        p10_vals = chart_df['P10'].values  # caso optimista (valor mayor)
+        p90_vals = chart_df['P90'].values  # caso conservador (valor menor)
+        err_low = np.clip(p50_vals - p90_vals, 0, None)
+        err_high = np.clip(p10_vals - p50_vals, 0, None)
+        ax.errorbar(p50_vals, y_pos, xerr=[err_low, err_high], fmt='o', capsize=4, color='steelblue')
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(chart_df.index)
+        ax.set_xlabel('Volumen (Mm³)')
+        ax.set_title('Rango P90–P50–P10 por caso')
+        ax.invert_yaxis()
+        st.pyplot(fig)
+        plt.close('all')
+
+    if st.button('🗑️ Limpiar comparación'):
+        st.session_state.saved_cases = {}
+        st.rerun()
+    st.caption('Nota: si tenés un Excel cargado arriba, sus prospectos se vuelven a agregar '
+               'automáticamente al limpiar (quedan siempre sincronizados). Sacá el archivo si querés quitarlos del todo.')
+
 st.caption('Volumetric Calculator · Developed by Miled Sefair · Contact: milosefair@gmail.com')
