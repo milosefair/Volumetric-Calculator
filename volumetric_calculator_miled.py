@@ -623,7 +623,7 @@ else:
 
     comp_vol_cols = [c for c in ['P90_IP','P50_IP','P10_IP','P90','P50','P10',
                                   'Rsk_P90','Rsk_P50','Rsk_P10','Well_Type_Cum'] if c in comp_df.columns]
-    comp_column_config = {c: st.column_config.NumberColumn(format="%,.0f Mm³") for c in comp_vol_cols}
+    comp_column_config = {c: st.column_config.NumberColumn(format="%,.1f Mm³") for c in comp_vol_cols}
     if 'Wells' in comp_df.columns:
         comp_column_config['Wells'] = st.column_config.NumberColumn(format="%.0f")
     if 'Success_%' in comp_df.columns:
