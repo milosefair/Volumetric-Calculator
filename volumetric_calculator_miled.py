@@ -9,6 +9,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import io
+import json
+import zlib
+import base64
 
 import streamlit as st
 
@@ -83,6 +86,29 @@ def save_case(name, fluid, p10, p50, p90, p10_ip=None, p50_ip=None, p90_ip=None,
         'Wells': wells if wells is not None else np.nan,
         'Well_Type_Cum': well_type_cum if well_type_cum is not None else np.nan,
     }
+
+def encode_cases_to_link(cases_dict):
+    """Comprime y codifica los casos guardados en un string apto para poner en la URL."""
+    raw = json.dumps(cases_dict).encode('utf-8')
+    compressed = zlib.compress(raw, level=9)
+    return base64.urlsafe_b64encode(compressed).decode('ascii')
+
+def decode_cases_from_link(encoded_str):
+    """Inversa de encode_cases_to_link. Devuelve {} si el string no es válido."""
+    try:
+        compressed = base64.urlsafe_b64decode(encoded_str.encode('ascii'))
+        raw = zlib.decompress(compressed)
+        return json.loads(raw.decode('utf-8'))
+    except Exception:
+        return {}
+
+# Si el link con el que se abrió la app trae casos codificados, cargarlos una sola vez
+if '_cases_loaded_from_url' not in st.session_state:
+    st.session_state['_cases_loaded_from_url'] = True
+    encoded_param = st.query_params.get('cases')
+    if encoded_param:
+        loaded_cases = decode_cases_from_link(encoded_param)
+        st.session_state.saved_cases.update(loaded_cases)
 
 # funcions
 def STOIP(area, ht, phi, sw, ntg, rf, bo):
@@ -650,9 +676,27 @@ else:
         st.pyplot(fig)
         plt.close('all')
 
-    if st.button('🗑️ Limpiar comparación'):
-        st.session_state.saved_cases = {}
-        st.rerun()
+    col_share, col_clear = st.columns(2)
+
+    with col_share:
+        if st.button('🔗 Generar link para compartir'):
+            encoded = encode_cases_to_link(st.session_state.saved_cases)
+            if len(encoded) > 6000:
+                st.warning('Hay demasiados casos guardados para meterlos en un link (algunos navegadores '
+                           'cortan URLs muy largas). Descargá el Excel de resultados en su lugar, o limpiá '
+                           'algunos casos antes de compartir.')
+            else:
+                st.query_params['cases'] = encoded
+                st.success('¡Listo! Copiá la URL completa de la barra de direcciones de tu navegador y '
+                           'compartila — quien la abra va a ver estos mismos casos cargados en la comparación.')
+
+    with col_clear:
+        if st.button('🗑️ Limpiar comparación'):
+            st.session_state.saved_cases = {}
+            if 'cases' in st.query_params:
+                del st.query_params['cases']
+            st.rerun()
+
     st.caption('Nota: si tenés un Excel cargado arriba, sus prospectos se vuelven a agregar '
                'automáticamente al limpiar (quedan siempre sincronizados). Sacá el archivo si querés quitarlos del todo.')
 
