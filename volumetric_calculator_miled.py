@@ -250,29 +250,63 @@ st.caption('Developed by Miled Sefair · Contact: milosefair@gmail.com')
 with st.expander('Manual Input', expanded=False):
     left_column, right_column = st.columns(2)
 
-    area_m = left_column.number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.001, value=1.0, format='%.6f')
-    area_sd = right_column.number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.001, value=0.1, format='%.6f', key='area_sd')
+    area_m = left_column.number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.01, value=1.0, format='%.2f',
+        help='Área media del reservorio. Rango típico: 0.1 a 1000 Km².')
+    area_sd = right_column.number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.01, value=0.1, format='%.2f', key='area_sd',
+        help='Incertidumbre del área (desvío estándar). Sugerido: 10-30% del valor medio.')
 
-    ht_m = left_column.number_input('Thickness [m]', min_value=0.000001, step=0.01, value=5.0, format='%.4f')
-    ht_sd = right_column.number_input('Thickness Std. dev [m]', min_value=0.000001, step=0.001, value=0.1, format='%.6f', key='ht_sd')
+    ht_m = left_column.number_input('Thickness [m]', min_value=0.000001, step=0.1, value=5.0, format='%.1f',
+        help='Espesor neto promedio de la formación, en metros. Rango típico: 1 a 100 m.')
+    ht_sd = right_column.number_input('Thickness Std. dev [m]', min_value=0.000001, step=0.1, value=0.1, format='%.1f', key='ht_sd',
+        help='Incertidumbre del espesor (desvío estándar). Sugerido: 10-30% del valor medio.')
 
-    phi_m = left_column.number_input('Porosity [fraction]', min_value=0.000001, max_value=1.0, step=0.001, value=0.2, format='%.6f')
-    phi_sd = right_column.number_input('Porosity Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.6f', key='phi_sd')
+    phi_m = left_column.number_input('Porosity [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
+        help='Porosidad efectiva, como fracción entre 0 y 1. Rango típico: 0.05 a 0.30 (5% a 30%).')
+    phi_sd = right_column.number_input('Porosity Std. dev', min_value=0.000001, step=0.01, value=0.05, format='%.2f', key='phi_sd',
+        help='Incertidumbre de la porosidad. Sugerido: 0.02 a 0.05.')
 
-    ntg_m = left_column.number_input('Net-to-Gross [fraction]', min_value=0.000001, max_value=1.0, step=0.001, value=0.6, format='%.6f')
-    ntg_sd = right_column.number_input('NTG Std. dev', min_value=0.000001, step=0.001, value=0.15, format='%.6f', key='ntg_sd')
+    ntg_m = left_column.number_input('Net-to-Gross [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.6, format='%.2f',
+        help='Relación entre espesor neto y espesor bruto, entre 0 y 1. Rango típico: 0.3 a 1.0.')
+    ntg_sd = right_column.number_input('NTG Std. dev', min_value=0.000001, step=0.01, value=0.15, format='%.2f', key='ntg_sd',
+        help='Incertidumbre del NTG. Sugerido: 0.05 a 0.20.')
 
-    sw_m = left_column.number_input('Water Saturation [fraction]', min_value=0.000001, max_value=1.0, step=0.001, value=0.3, format='%.6f')
-    sw_sd = right_column.number_input('Sw Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.6f', key='sw_sd')
+    sw_m = left_column.number_input('Water Saturation [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.3, format='%.2f',
+        help='Saturación de agua irreducible, entre 0 y 1. Rango típico: 0.15 a 0.50.')
+    sw_sd = right_column.number_input('Sw Std. dev', min_value=0.000001, step=0.01, value=0.05, format='%.2f', key='sw_sd',
+        help='Incertidumbre de la saturación de agua. Sugerido: 0.02 a 0.10.')
 
-    rf_m = left_column.number_input('Recovery Factor [fraction]', min_value=0.000001, max_value=1.0, step=0.001, value=0.2, format='%.6f')
-    rf_sd = right_column.number_input('RF Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.6f', key='rf_sd')
+    rf_m = left_column.number_input('Recovery Factor [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
+        help='Fracción del volumen in-situ que se espera recuperar, entre 0 y 1. Rango típico: 0.05 (no convencional) a 0.40 (convencional).')
+    rf_sd = right_column.number_input('RF Std. dev', min_value=0.000001, step=0.01, value=0.05, format='%.2f', key='rf_sd',
+        help='Incertidumbre del factor de recobro. Sugerido: 0.02 a 0.10.')
 
-    bo_m = left_column.number_input('Bo', min_value=0.000001, step=0.001, value=1.2, format='%.6f')
-    bo_sd = right_column.number_input('Bo Std. dev', min_value=0.000001, step=0.001, value=0.1, format='%.6f', key='bo_sd')
+    bo_m = left_column.number_input('Bo', min_value=0.000001, step=0.01, value=1.2, format='%.2f',
+        help='Factor volumétrico del petróleo (volumen a condiciones de reservorio / volumen a superficie). Rango típico: 1.0 a 2.0.')
+    bo_sd = right_column.number_input('Bo Std. dev', min_value=0.000001, step=0.01, value=0.1, format='%.2f', key='bo_sd',
+        help='Incertidumbre de Bo. Sugerido: 0.05 a 0.15.')
 
-    iters_man = right_column.number_input('Iterations', min_value=100, step=1000, value=10000, key='iters_manual')
-    seed_man = left_column.number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0, key='seed_manual')
+    iters_man = right_column.number_input('Iterations', min_value=100, step=1000, value=10000, key='iters_manual',
+        help='Cantidad de simulaciones de Monte Carlo. A más iteraciones, resultado más estable pero más lento. Sugerido: 10.000.')
+    seed_man = left_column.number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0, key='seed_manual',
+        help='Fijá un número distinto de 0 para que la corrida sea reproducible (mismos inputs → mismos resultados). Dejalo en 0 para que sea aleatoria.')
+
+    use_risk_man = st.checkbox('Include Geological Risk (optional)', value=False, key='use_risk_manual',
+        help='Activá esta opción para calcular la probabilidad de éxito geológico (Pg) y los volúmenes riesgados.')
+    if use_risk_man:
+        st.caption('Probabilidad de éxito de cada elemento del sistema petrolero (%). Rango: 0% a 100% en cada uno.')
+        risk_col1, risk_col2, risk_col3, risk_col4 = st.columns(4)
+        trapseal_m = risk_col1.number_input('Trap/Seal [%]', min_value=0.0, max_value=100.0, step=1.0, value=80.0, format='%.0f', key='trapseal_man',
+            help='Probabilidad de que la trampa y el sello sean efectivos. Rango típico: 50% a 95%.')
+        resrock_m  = risk_col2.number_input('Reservoir Rock [%]', min_value=0.0, max_value=100.0, step=1.0, value=90.0, format='%.0f', key='resrock_man',
+            help='Probabilidad de presencia de roca reservorio con calidad suficiente. Rango típico: 60% a 95%.')
+        srcmig_m   = risk_col3.number_input('Source/Migration [%]', min_value=0.0, max_value=100.0, step=1.0, value=85.0, format='%.0f', key='srcmig_man',
+            help='Probabilidad de generación y migración efectiva de hidrocarburos. Rango típico: 50% a 95%.')
+        timing_m   = risk_col4.number_input('Timing [%]', min_value=0.0, max_value=100.0, step=1.0, value=95.0, format='%.0f', key='timing_man',
+            help='Probabilidad de que la sincronización entre generación, migración y trampa sea favorable. Rango típico: 70% a 99%.')
+
+
+
+
 
     # Manual input calc
     if left_column.button('Compute'):
@@ -294,10 +328,23 @@ with st.expander('Manual Input', expanded=False):
         p50 = np.percentile(value,50)
         p90 = np.percentile(value,90)
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric('P90', f"{fmt_vol(p10)} Mm3")
-        m2.metric('P50', f"{fmt_vol(p50)} Mm3")
-        m3.metric('P10', f"{fmt_vol(p90)} Mm3")
+        if use_risk_man:
+            pro_scc_man = (trapseal_m/100) * (resrock_m/100) * (srcmig_m/100) * (timing_m/100)
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric('P90', f"{fmt_vol(p10)} Mm3")
+            m2.metric('P50', f"{fmt_vol(p50)} Mm3")
+            m3.metric('P10', f"{fmt_vol(p90)} Mm3")
+            m4.metric('Success (Pg)', f"{pro_scc_man*100:.1f}%")
+
+            r1, r2, r3 = st.columns(3)
+            r1.metric('Risked P90', f"{fmt_vol(p10*pro_scc_man)} Mm3")
+            r2.metric('Risked P50', f"{fmt_vol(p50*pro_scc_man)} Mm3")
+            r3.metric('Risked P10', f"{fmt_vol(p90*pro_scc_man)} Mm3")
+        else:
+            m1, m2, m3 = st.columns(3)
+            m1.metric('P90', f"{fmt_vol(p10)} Mm3")
+            m2.metric('P50', f"{fmt_vol(p50)} Mm3")
+            m3.metric('P10', f"{fmt_vol(p90)} Mm3")
 
         plot_results()
 
@@ -314,19 +361,25 @@ st.download_button(
     help='Plantilla de Excel con los valores de carga iniciales y una hoja de instrucciones.'
 )
 
-loaded_file = st.file_uploader('File Input',type=['xlsx'])
+loaded_file = st.file_uploader('File Input',type=['xlsx'],
+    help='Subí el Excel completo con tus prospectos, siguiendo las columnas de la plantilla de ejemplo.')
 
 col_iters, col_seed = st.columns(2)
-iters = col_iters.number_input('Iterations', min_value=100, step=1000, value=10000)
+iters = col_iters.number_input('Iterations', min_value=100, step=1000, value=10000,
+    help='Cantidad de simulaciones de Monte Carlo por prospecto. A más iteraciones, resultado más estable pero más lento. Sugerido: 10.000.')
 seed = col_seed.number_input('Random seed (0 = aleatorio)', min_value=0, step=1, value=0,
-                              help='Fijá un valor distinto de 0 para que la corrida sea reproducible.')
+    help='Fijá un valor distinto de 0 para que la corrida sea reproducible (mismos inputs → mismos resultados). Dejalo en 0 para que sea aleatoria.')
 
 # Graph output selection
 left_col_2, right_col_2, right_col_3 = st.columns(3)
 
-graph_out = left_col_2.checkbox(label='Show Graphics')
-graph_prop = right_col_2.checkbox(label='Show Properties Distribution')
-use_risk = right_col_3.checkbox(label='Include Geological Risk (optional)', value=False)
+graph_out = left_col_2.checkbox(label='Show Graphics',
+    help='Muestra el histograma y la curva de probabilidad acumulada del volumen de cada prospecto.')
+graph_prop = right_col_2.checkbox(label='Show Properties Distribution',
+    help='Muestra el histograma de cada variable de entrada (área, espesor, porosidad, etc.) para cada prospecto.')
+use_risk = right_col_3.checkbox(label='Include Geological Risk (optional)', value=False,
+    help='Usa las columnas TRAPSEAL, RESROCK, SRCMIG y TIMING del Excel (0 a 100%) para calcular la probabilidad de éxito y los volúmenes riesgados.')
+
 
 if loaded_file is not None:
     df = pd.read_excel(loaded_file)
