@@ -250,39 +250,39 @@ st.caption('Developed by Miled Sefair · Contact: milosefair@gmail.com')
 with st.expander('Manual Input', expanded=False):
     left_column, right_column = st.columns(2)
 
-    area_m = left_column.number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.01, value=1.0, format='%.2f',
+    area_m = left_column.number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.001, value=1.0, format='%.3f',
         help='Área media del reservorio. Rango típico: 0.1 a 1000 Km².')
-    area_sd = right_column.number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.01, value=0.1, format='%.2f', key='area_sd',
+    area_sd = right_column.number_input('Area Std. dev [Km²]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='area_sd',
         help='Incertidumbre del área (desvío estándar). Sugerido: 10-30% del valor medio.')
 
     ht_m = left_column.number_input('Thickness [m]', min_value=0.000001, step=0.1, value=5.0, format='%.1f',
         help='Espesor neto promedio de la formación, en metros. Rango típico: 1 a 100 m.')
-    ht_sd = right_column.number_input('Thickness Std. dev [m]', min_value=0.000001, step=0.1, value=0.1, format='%.1f', key='ht_sd',
+    ht_sd = right_column.number_input('Thickness Std. dev [m]', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='ht_sd',
         help='Incertidumbre del espesor (desvío estándar). Sugerido: 10-30% del valor medio.')
 
     phi_m = left_column.number_input('Porosity [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
         help='Porosidad efectiva, como fracción entre 0 y 1. Rango típico: 0.05 a 0.30 (5% a 30%).')
-    phi_sd = right_column.number_input('Porosity Std. dev', min_value=0.000001, step=0.01, value=0.05, format='%.2f', key='phi_sd',
+    phi_sd = right_column.number_input('Porosity Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='phi_sd',
         help='Incertidumbre de la porosidad. Sugerido: 0.02 a 0.05.')
 
     ntg_m = left_column.number_input('Net-to-Gross [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.6, format='%.2f',
         help='Relación entre espesor neto y espesor bruto, entre 0 y 1. Rango típico: 0.3 a 1.0.')
-    ntg_sd = right_column.number_input('NTG Std. dev', min_value=0.000001, step=0.01, value=0.15, format='%.2f', key='ntg_sd',
+    ntg_sd = right_column.number_input('NTG Std. dev', min_value=0.000001, step=0.001, value=0.15, format='%.4f', key='ntg_sd',
         help='Incertidumbre del NTG. Sugerido: 0.05 a 0.20.')
 
     sw_m = left_column.number_input('Water Saturation [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.3, format='%.2f',
         help='Saturación de agua irreducible, entre 0 y 1. Rango típico: 0.15 a 0.50.')
-    sw_sd = right_column.number_input('Sw Std. dev', min_value=0.000001, step=0.01, value=0.05, format='%.2f', key='sw_sd',
+    sw_sd = right_column.number_input('Sw Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='sw_sd',
         help='Incertidumbre de la saturación de agua. Sugerido: 0.02 a 0.10.')
 
     rf_m = left_column.number_input('Recovery Factor [fraction]', min_value=0.000001, max_value=1.0, step=0.01, value=0.2, format='%.2f',
         help='Fracción del volumen in-situ que se espera recuperar, entre 0 y 1. Rango típico: 0.05 (no convencional) a 0.40 (convencional).')
-    rf_sd = right_column.number_input('RF Std. dev', min_value=0.000001, step=0.01, value=0.05, format='%.2f', key='rf_sd',
+    rf_sd = right_column.number_input('RF Std. dev', min_value=0.000001, step=0.001, value=0.05, format='%.4f', key='rf_sd',
         help='Incertidumbre del factor de recobro. Sugerido: 0.02 a 0.10.')
 
     bo_m = left_column.number_input('Bo', min_value=0.000001, step=0.01, value=1.2, format='%.2f',
         help='Factor volumétrico del petróleo (volumen a condiciones de reservorio / volumen a superficie). Rango típico: 1.0 a 2.0.')
-    bo_sd = right_column.number_input('Bo Std. dev', min_value=0.000001, step=0.01, value=0.1, format='%.2f', key='bo_sd',
+    bo_sd = right_column.number_input('Bo Std. dev', min_value=0.000001, step=0.001, value=0.1, format='%.4f', key='bo_sd',
         help='Incertidumbre de Bo. Sugerido: 0.05 a 0.15.')
 
     iters_man = right_column.number_input('Iterations', min_value=100, step=1000, value=10000, key='iters_manual',
