@@ -316,7 +316,7 @@ with st.expander('Manual Input', expanded=False):
     st.divider()
 
     row_area = st.columns(2)
-    area_m = row_area[0].number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.001, value=1.0, format='%.3f',
+    area_m = row_area[0].number_input('Area [Km²]', min_value=0.000001, max_value=1000.0, step=0.0001, value=1.0, format='%.4f',
         help='Área media del reservorio. Rango típico: 0.1 a 1000 Km².')
     radius_m = (area_m / np.pi) ** 0.5 * 1000
     row_area[0].caption(f"↳ Equivale a un círculo de radio ≈ **{fmt_number(radius_m, 0)} m**")
@@ -693,7 +693,7 @@ else:
         with st.expander('🔧 Variables de entrada de cada caso (con desvíos estándar)'):
             vars_df = comp_df[['Fluid'] + input_cols]
             vars_column_config = {
-                'Area': st.column_config.NumberColumn('Area [Km²]', format="%.3f"),
+                'Area': st.column_config.NumberColumn('Area [Km²]', format="%.4f"),
                 'Area_SD': st.column_config.NumberColumn('Area SD', format="%.4f"),
                 'HT': st.column_config.NumberColumn('Thickness [m]', format="%.1f"),
                 'HT_SD': st.column_config.NumberColumn('Thickness SD', format="%.4f"),
